@@ -1,0 +1,574 @@
+:root {
+  /* Placeholder dark palette — refine in week 3 polish pass. */
+  --bg: #16181c;
+  --panel: #1f2228;
+  --panel-2: #262a31;
+  --border: #32373f;
+  --text: #e6e8eb;
+  --muted: #9aa1ac;
+  --accent: #4c8dff;
+
+  --rail-w: 56px;
+  --drawer-w: 320px;
+  --chat-w: 400px;
+  --topbar-h: 48px;
+  --footer-h: 44px;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  font-size: 14px;
+  overflow: hidden;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* ---------- app shell ---------- */
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+.app-body {
+  flex: 1;
+  display: flex;
+  min-height: 0; /* lets children scroll instead of blowing out the shell */
+}
+
+/* ---------- top bar ---------- */
+
+.topbar {
+  height: var(--topbar-h);
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.topbar-title {
+  font-weight: 600;
+  letter-spacing: 0.2px;
+}
+
+.topbar-meta {
+  margin-left: auto;
+  display: flex;
+  gap: 16px;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ---------- icon rail ---------- */
+
+.rail {
+  width: var(--rail-w);
+  flex: 0 0 var(--rail-w);
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: 8px;
+  gap: 4px;
+}
+
+.rail-btn {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.rail-btn:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.rail-btn.active {
+  background: var(--panel-2);
+  color: var(--accent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+/* ---------- drawer ---------- */
+
+.drawer {
+  width: var(--drawer-w);
+  flex: 0 0 var(--drawer-w);
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.drawer-head {
+  display: flex;
+  align-items: center;
+  height: 40px;
+  padding: 0 8px 0 14px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+}
+
+.drawer-close {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+.drawer-close:hover {
+  color: var(--text);
+}
+
+.drawer-body {
+  flex: 1;
+  overflow: auto;
+  min-height: 0;
+}
+
+.drawer-pad {
+  padding: 14px;
+}
+
+/* ---------- Esri widgets mounted inside the drawer ---------- */
+
+/* Esri widgets ship their own panel chrome — background, borders, shadow, font.
+   Strip it so they read as part of our sidebar instead of a card inside it. */
+.drawer-body .esri-widget,
+.drawer-body .esri-widget__content,
+.drawer-body .esri-layer-list,
+.drawer-body .esri-layer-list__list,
+.drawer-body .esri-layer-list__item,
+.drawer-body .esri-layer-list__item-container,
+.drawer-body .esri-basemap-gallery,
+.drawer-body .esri-basemap-gallery__item {
+  background: transparent;
+  color: var(--text);
+  font-family: inherit;
+  border: none;
+  box-shadow: none;
+}
+
+.drawer-body .esri-layer-list__item {
+  border-bottom: 1px solid var(--border);
+}
+
+.drawer-body .esri-layer-list__item-container {
+  padding: 8px 14px;
+}
+
+.drawer-body .esri-layer-list__item-container:hover {
+  background: var(--panel-2);
+}
+
+.drawer-body .esri-layer-list__item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text);
+}
+
+/* Name + visibility toggle only — hide the per-item actions menu. */
+.drawer-body .esri-layer-list__item-actions,
+.drawer-body .esri-layer-list__item-actions-menu-item,
+.drawer-body .esri-layer-list__item-actions-menu {
+  display: none;
+}
+
+/* --- Search widget: match our own input styling --- */
+
+.drawer-body .esri-search {
+  margin: 14px;
+  width: auto;
+}
+
+.drawer-body .esri-search__container,
+.drawer-body .esri-search__form {
+  background: transparent;
+  box-shadow: none;
+}
+
+.drawer-body .esri-search__input {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px 0 0 6px;
+  color: var(--text);
+  font: inherit;
+  font-size: 13px;
+  padding: 8px 10px;
+  height: auto;
+}
+
+.drawer-body .esri-search__input::placeholder {
+  color: var(--muted);
+}
+
+.drawer-body .esri-search__input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.drawer-body .esri-search__submit-button,
+.drawer-body .esri-search__clear-button {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-left: none;
+  color: var(--muted);
+}
+
+.drawer-body .esri-search__submit-button {
+  border-radius: 0 6px 6px 0;
+}
+
+.drawer-body .esri-search__submit-button:hover,
+.drawer-body .esri-search__clear-button:hover {
+  background: var(--border);
+  color: var(--text);
+}
+
+/* Suggestion dropdown */
+.drawer-body .esri-search__suggestions-menu,
+.drawer-body .esri-menu,
+.drawer-body .esri-menu__list {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.4);
+}
+
+.drawer-body .esri-menu__list-item {
+  color: var(--text);
+  font-size: 13px;
+  border-top: 1px solid var(--border);
+}
+
+.drawer-body .esri-menu__list-item:hover,
+.drawer-body .esri-menu__list-item--active {
+  background: var(--bg);
+}
+
+.drawer-body .esri-menu__header,
+.drawer-body .esri-search__source-name {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.drawer-body .esri-basemap-gallery__item-title {
+  font-size: 12px;
+  color: var(--text);
+}
+
+.drawer-body .esri-basemap-gallery__item--selected {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+
+/* ---------- map ---------- */
+
+.map-wrap {
+  flex: 1;
+  position: relative;
+  min-width: 0;
+}
+
+.map-container {
+  position: absolute;
+  inset: 0;
+}
+
+/* ---------- chat ---------- */
+
+.chat {
+  width: var(--chat-w);
+  flex: 0 0 var(--chat-w);
+  background: var(--panel);
+  border-left: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+}
+
+.chat-head {
+  height: 40px;
+  display: flex;
+  align-items: center;
+  padding: 0 14px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+}
+
+.chat-context {
+  margin-left: auto;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+  color: var(--muted);
+}
+
+.chat-messages {
+  flex: 1;
+  overflow: auto;
+  padding: 14px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.msg {
+  border-radius: 8px;
+  padding: 10px 12px;
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.msg-user {
+  background: var(--accent);
+  color: #fff;
+  align-self: flex-end;
+  max-width: 85%;
+}
+
+.msg-assistant {
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+}
+
+.msg-error {
+  border-color: #7f3a3a;
+  color: #ff9f9f;
+}
+
+/* Preserve the paragraph breaks the model writes without needing a markdown lib. */
+.msg-text {
+  white-space: pre-wrap;
+}
+
+.sources {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.source-chip {
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px 8px;
+  color: var(--muted);
+  cursor: default;
+}
+
+.badge-ok {
+  color: #7fd18b;
+  border-color: #35563b;
+}
+
+.badge-warn {
+  color: #ffcf7f;
+  border-color: #6b5326;
+}
+
+.unsupported {
+  margin: 8px 0 0;
+  padding-left: 18px;
+  font-size: 12px;
+  color: #ffcf7f;
+  line-height: 1.5;
+}
+
+.trace {
+  margin-top: 8px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.trace summary {
+  cursor: pointer;
+}
+
+.trace-body {
+  margin-top: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 10px;
+  border-left: 2px solid var(--border);
+}
+
+.spinner-dark {
+  border-color: var(--border);
+  border-top-color: var(--accent);
+  display: inline-block;
+  vertical-align: -2px;
+  margin-right: 8px;
+}
+
+.chat-input {
+  border-top: 1px solid var(--border);
+  padding: 10px;
+  display: flex;
+  gap: 8px;
+}
+
+.chat-input input {
+  flex: 1;
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 9px 11px;
+  color: var(--text);
+  font: inherit;
+}
+
+.chat-input input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.chat-input button {
+  background: var(--accent);
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  padding: 0 16px;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+/* ---------- footer ---------- */
+
+.footer {
+  flex: 0 0 auto;
+  min-height: var(--footer-h);
+  max-height: 120px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 0 16px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+
+.footer-legend {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  overflow: auto;
+  max-height: 110px;
+}
+
+.footer-label {
+  flex: 0 0 auto;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--muted);
+}
+
+/* Esri's Legend renders its own chrome; strip the panel background so it sits flat
+   in the footer strip instead of looking like a floating card. */
+.footer-legend-host .esri-legend,
+.footer-legend-host .esri-widget {
+  background: transparent;
+  padding: 0;
+}
+
+.footer-copy {
+  flex: 0 0 auto;
+  color: var(--muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* ---------- misc ---------- */
+
+.muted {
+  color: var(--muted);
+}
+
+.placeholder {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+
+
+.file-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 6px;
+  padding: 8px 14px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  margin-bottom: 12px;
+}
+
+.file-btn.disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.spinner {
+  width: 13px;
+  height: 13px;
+  flex: 0 0 auto;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
