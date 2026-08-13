@@ -1,5 +1,13 @@
+# PyTorch's default PyPI wheel bundles CUDA (~2.5GB). App Service has no GPU, so
+# pull the CPU-only build (~200MB) from PyTorch's own index. The "+cpu" suffix only
+# exists on that index, so pip cannot silently fall back to the CUDA wheel.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch==2.13.0+cpu
+
 fastapi
 uvicorn[standard]
+# ASGI process manager for Azure App Service — gunicorn supervises uvicorn workers.
+gunicorn
 python-multipart
 python-dotenv
 pypdf
