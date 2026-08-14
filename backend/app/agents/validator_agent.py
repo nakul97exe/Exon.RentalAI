@@ -68,7 +68,7 @@ def _format_sources(documents: list, parcel: dict | None) -> str:
         attributes = " | ".join(f"{key}: {value}" for key, value in parcel.items())
         parcel_summary = f"Parcel attributes (real GIS data): {attributes}"
     else:
-        parcel_summary = "Parcel attributes: none"
+        parcel_summary = "Parcel attributes: None"
 
     return f"{doc_summary}\n\n{parcel_summary}"
 
