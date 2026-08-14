@@ -11,9 +11,16 @@ export default function MapView({ onViewReady, onParcelSelect }) {
 
   // Kept in refs so a changing callback identity doesn't tear down the map.
   const onViewReadyRef = useRef(onViewReady);
-  onViewReadyRef.current = onViewReady;
   const onParcelSelectRef = useRef(onParcelSelect);
-  onParcelSelectRef.current = onParcelSelect;
+
+  // Updated in an effect rather than during render — writing to a ref while
+  // rendering is unsafe under concurrent React, and the lint rule enforces it.
+  // No dependency array, so this runs after every render and the refs always
+  // hold the latest callbacks.
+  useEffect(() => {
+    onViewReadyRef.current = onViewReady;
+    onParcelSelectRef.current = onParcelSelect;
+  });
 
   useEffect(() => {
     const map = new Map({

@@ -1,4 +1,4 @@
-import { RAIL_ITEMS } from "./IconRail.jsx";
+import { RAIL_ITEMS } from "./railItems.js";
 import LayersPanel from "./panels/LayersPanel.jsx";
 import AddDataPanel from "./panels/AddDataPanel.jsx";
 import DocumentsPanel from "./panels/DocumentsPanel.jsx";

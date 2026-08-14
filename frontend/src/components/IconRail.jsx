@@ -1,12 +1,5 @@
 import Icon from "./Icon.jsx";
-
-export const RAIL_ITEMS = [
-  { key: "layers", icon: "layers", label: "Layers" },
-  { key: "addData", icon: "upload", label: "Add data" },
-  { key: "documents", icon: "document", label: "Documents" },
-  { key: "findParcel", icon: "search", label: "Find parcel" },
-  { key: "baseMapGallery", icon: "basemap", label: "Basemap gallery" }
-];
+import { RAIL_ITEMS } from "./railItems.js";
 
 export default function IconRail({ active, onSelect }) {
   return (

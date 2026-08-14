@@ -22,3 +22,42 @@ jobs:
           # Only the backend folder is zipped, so app.main:app resolves at the root
           # of the deployed tree — which is what the startup command expects.
           package: backend
+
+  deploy-frontend:
+    runs-on: ubuntu-latest
+    # Backend first: the frontend is useless if the API it points at is down, and
+    # this keeps the two deploys from racing on a shared failure.
+    needs: deploy-backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      # Vite substitutes VITE_* variables into the bundle AT BUILD TIME — they are
+      # not read when the page loads. So the backend URL must be present here, and
+      # changing it means rebuilding, not just editing a setting.
+      - name: Build
+        working-directory: frontend
+        env:
+          VITE_API_BASE: ${{ secrets.VITE_API_BASE }}
+        run: npm run build
+
+      - name: Deploy frontend to Azure Static Web Apps
+        uses: Azure/static-web-apps-deploy@v1
+        with:
+          azure_static_web_apps_api_token: ${{ secrets.AZURE_STATIC_WEB_APPS_API_TOKEN }}
+          repo_token: ${{ secrets.GITHUB_TOKEN }}
+          action: upload
+          # Point at dist/ and skip the action's own build — we already built above
+          # with the right env var. Letting it rebuild would lose VITE_API_BASE.
+          app_location: frontend/dist
+          skip_app_build: true
