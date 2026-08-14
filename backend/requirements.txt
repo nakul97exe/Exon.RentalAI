@@ -16,6 +16,11 @@ openpyxl
 sentence-transformers
 chromadb
 requests
+# Azure App Service's Linux image ships sqlite3 < 3.35, which chromadb refuses to
+# import. This wheel bundles a modern SQLite; app/__init__.py swaps it in.
+# Linux-only marker: there are no Windows wheels, and Windows already has a new
+# enough sqlite3, so it must not be installed locally.
+pysqlite3-binary; sys_platform == "linux"
 langchain
 langchain-community
 langchain-text-splitters
