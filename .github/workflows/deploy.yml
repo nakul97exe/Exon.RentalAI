@@ -1,0 +1,24 @@
+name: Deploy to Azure
+
+# Only main. A push to any other branch runs CI but never touches production.
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # Dependencies are NOT installed here. SCM_DO_BUILD_DURING_DEPLOYMENT=1 in the
+      # App Service settings makes Azure run pip install on the instance after the zip
+      # lands — so the wheels match the server's platform, and the upload stays small.
+      - name: Deploy backend to Azure Web App
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ secrets.AZURE_WEBAPP_NAME }}
+          publish-profile: ${{ secrets.AZURE_WEBAPP_PUBLISH_PROFILE }}
+          # Only the backend folder is zipped, so app.main:app resolves at the root
+          # of the deployed tree — which is what the startup command expects.
+          package: backend

@@ -1,0 +1,68 @@
+name: CI
+
+# Runs on every push and every PR to main. This is the gate: it answers
+# "does the code work?" It never touches Azure.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  backend-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          # Caches the pip download directory between runs. Matters here because
+          # torch is ~200MB even in the CPU build.
+          cache: "pip"
+          cache-dependency-path: backend/requirements.txt
+
+      # Fast feedback: catches syntax errors in seconds, before the slow install.
+      - name: Syntax check
+        run: python -m compileall -q backend/app
+
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+
+      # The real check. Importing the app runs every module-level line: imports,
+      # config loading, router registration. Catches a missing dependency, a bad
+      # import path, or a typo in a decorator — none of which compileall sees.
+      - name: Import smoke test
+        working-directory: backend
+        run: python -c "from app.main import app; print('imported OK')"
+
+  frontend-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      # npm ci, not npm install: installs exactly what package-lock.json says and
+      # fails if the lockfile is out of sync. Reproducible builds.
+      - name: Install dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: frontend
+        run: npm run lint
+
+      # A placeholder URL is enough — we only want to know the build compiles.
+      # The real URL is injected in deploy.yml, since Vite bakes it in at build time.
+      - name: Build
+        working-directory: frontend
+        env:
+          VITE_API_BASE: https://placeholder.azurewebsites.net
+        run: npm run build
