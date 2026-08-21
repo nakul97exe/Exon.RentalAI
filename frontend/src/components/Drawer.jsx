@@ -5,7 +5,14 @@ import DocumentsPanel from "./panels/DocumentsPanel.jsx";
 import FindParcelPanel from "./panels/FindParcelPanel.jsx";
 import BaseMapGalleryPanel from "./panels/BaseMapGalleryPanel.jsx";
 
-export default function Drawer({ panel, view, onClose, onParcelCount }) {
+export default function Drawer({
+  panel,
+  view,
+  onClose,
+  onParcelCount,
+  onDocCount,
+  onParcelSelect,
+}) {
   if (!panel) return null;
 
   const title = RAIL_ITEMS.find((i) => i.key === panel)?.label ?? panel;
@@ -23,8 +30,12 @@ export default function Drawer({ panel, view, onClose, onParcelCount }) {
         {panel === "addData" && (
           <AddDataPanel view={view} onParcelCount={onParcelCount} />
         )}
-        {panel === "documents" && <DocumentsPanel />}
-        {panel === "findParcel" && <FindParcelPanel view={view} />}
+        {panel === "documents" && (
+          <DocumentsPanel onDocCount={onDocCount} /> 
+        )}
+        {panel === "findParcel" && (
+          <FindParcelPanel view={view} onParcelSelect={onParcelSelect} />
+        )}
         {panel === "baseMapGallery" && <BaseMapGalleryPanel view={view} />  }
       </div>
     </aside>

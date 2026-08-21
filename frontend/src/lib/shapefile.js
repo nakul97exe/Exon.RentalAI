@@ -1,5 +1,6 @@
 import shp from "shpjs";
 import GeoJSONLayer from "@arcgis/core/layers/GeoJSONLayer.js";
+import { applyDemoUnits } from "./demoUnits.js";
 
 const PURPLE = [128, 0, 128, 0.5];
 const BLUE = [0, 0, 255, 0.5];
@@ -123,6 +124,10 @@ export async function layersFromShapefileZip(file) {
   }
 
   const esriType = GEOM_MAP[features[0].geometry.type];
+
+  // Demo layers may carry no unit count; no-op unless VITE_DEMO_UNITS=true.
+  // Must run before makeLayer, which reads the field list off the features.
+  applyDemoUnits(features, detectIdField(features[0].properties));
 
   // shpjs reports the path inside the zip — keep just the file name.
   const baseName = file.name.replace(/\.zip$/i, "");

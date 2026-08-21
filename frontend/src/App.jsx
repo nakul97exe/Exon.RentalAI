@@ -13,10 +13,14 @@ export default function App() {
   // parcel-related is stored on the backend.
   const [selectedParcel, setSelectedParcel] = useState(null);
   const [layerCount, setLayerCount] = useState(0);
+  const [documentCount, setDocumentCount] =  useState(0);
 
+  // calcite-mode-dark: Esri 4.31 widgets render Calcite web components whose styles
+  // live in shadow DOM — our CSS can't reach them, but they inherit their light/dark
+  // mode from the nearest ancestor carrying this class.
   return (
-    <div className="app">
-      <TopBar city={null} docCount={0} parcelCount={layerCount} />
+    <div className="app calcite-mode-dark">
+      <TopBar city={'Palo Alto'} docCount={documentCount ?? 0} parcelCount={layerCount} />
 
       <div className="app-body">
         <IconRail active={activePanel} onSelect={setActivePanel} />
@@ -24,6 +28,8 @@ export default function App() {
           panel={activePanel}
           view={view}
           onParcelCount={setLayerCount}
+          onDocCount = {setDocumentCount}
+          onParcelSelect={setSelectedParcel}
           onClose={() => setActivePanel(null)}
         />
 

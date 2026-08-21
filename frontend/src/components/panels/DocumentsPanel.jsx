@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { uploadDocument } from "../../api/client.js";
 
-export default function DocumentsPanel() {
+export default function DocumentsPanel({onDocCount}) {
   const [documentStatus, setDocumentStatus] = useState(null);
   const [documentBusy, setDocumentBusy] = useState(false);
 
@@ -20,6 +20,7 @@ export default function DocumentsPanel() {
         `Indexed ${data.chunks} chunks from ${data.sections.length} sections.`,
       );
       setDocumentBusy(false);
+      onDocCount?.((n) => n + 1);
     } catch (err) {
       setDocumentBusy(false);
       setDocumentStatus(`Failed: ${err.message}`);

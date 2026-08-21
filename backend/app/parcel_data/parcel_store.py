@@ -4,6 +4,7 @@ Attributes arrive with each request (the frontend already has them from the
 clicked feature), so nothing is stored between requests — that keeps two users
 from ever seeing each other's parcel.
 """
+from app.parcel_data.demo_units import apply_demo_units
 
 # Fields worth showing the LLM. Anything else is either noise or too large.
 USEFUL_FIELDS = (
@@ -57,4 +58,6 @@ def get_parcel_attributes(apn: str | None, raw: dict | None) -> dict | None:
         return None
 
     cleaned.setdefault("APN", apn)
-    return cleaned
+
+    # Demo layers may carry no unit count. Fabricated, and only when absent.
+    return apply_demo_units(apn, cleaned)
