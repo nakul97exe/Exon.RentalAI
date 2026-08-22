@@ -9,6 +9,8 @@
 | **Repository** | `paloAltoRentalGIS` |
 | **Stack** | FastAPI · LangChain (components only) · Chroma · sentence-transformers · OpenRouter (Claude Sonnet 4.5) · React 19 + Vite · Esri ArcGIS JS SDK |
 | **Deployment** | Azure App Service (backend) + Azure Static Web Apps (frontend) |
+| **Live demo** | https://red-beach-0bbb9cb1e.7.azurestaticapps.net/ |
+| **Sample files** | [`docs/files/`](files/) — the ordinance PDF and parcel shapefile used throughout |
 
 ---
 
@@ -32,8 +34,10 @@
 16. [Known limitations](#16-known-limitations)
 17. [Roadmap](#17-roadmap)
 18. [Assignment task mapping](#18-assignment-task-mapping)
-19. [Appendix — API reference](#19-appendix--api-reference)
-20. [Appendix — Running locally](#20-appendix--running-locally)
+19. [Appendix — Repository layout](#19-appendix--repository-layout)
+20. [Appendix — File-by-file reference](#20-appendix--file-by-file-reference)
+21. [Appendix — API reference](#21-appendix--api-reference)
+22. [Appendix — Running locally](#22-appendix--running-locally)
 
 ---
 
@@ -1560,6 +1564,51 @@ gunicorn -w 1 -k uvicorn.workers.UvicornWorker --timeout 600 --bind 0.0.0.0:8000
 | `ALLOWED_ORIGINS` | The deployed frontend's URL — a hardcoded localhost origin blocks every real request |
 | `WEBSITES_CONTAINER_START_TIME_LIMIT=1800` | The default 230 s is shorter than a cold PyTorch start |
 
+### Where state lives in production
+
+There is no managed database in this deployment, and that is not an omission. Chroma in
+persistent mode is an **embedded** store — a library running inside the FastAPI process
+that reads and writes files in a directory. There is no port, no connection string, and
+nothing to provision. The only deployment question is *which directory*.
+
+That matters because App Service Linux runs the app in a container, and container
+filesystems are disposable: restart, redeploy, scale or platform maintenance replaces the
+container and discards everything written to it. The exception is **`/home`**, where Azure
+mounts an Azure Files share that lives outside the container lifecycle. Pointing the two
+caches at `/home` is the whole persistence design:
+
+| What | Path on Azure | Contents | Lost if not on `/home` |
+|---|---|---|---|
+| Vector store | `/home/data/chroma_store` | `chroma.sqlite3` (chunk text + metadata) and per-collection HNSW binaries (`data_level0.bin`, `link_lists.bin`) | Every uploaded document, on every restart |
+| Uploaded files | `/home/data/uploaded_documents` | The original PDFs as received | The source files behind the citations |
+| Embedding model | `/home/.cache/huggingface` | `all-MiniLM-L6-v2`, ~90 MB | A 90 MB re-download per cold start, and a hard dependency on Hugging Face being reachable |
+
+`config.py` makes the switch without a code change — `DATA_DIR` defaults to
+`backend/data` and the Azure app setting overrides it to `/home/data`.
+`chroma_client.py` calls `CHROMA_DIR.mkdir(parents=True, exist_ok=True)`, so the store is
+created on first use and reopened thereafter. No migration or init step exists because
+none is needed.
+
+The embedding model is cached **twice, deliberately**: on disk at `HF_HOME` so it survives
+restarts, and in memory via `@lru_cache(maxsize=1)` in `embeddings.py` so it is not
+re-read from disk per request. Neither cache substitutes for the other.
+
+**What this design costs.** Worth stating plainly, because each is a real constraint
+rather than a theoretical one:
+
+- **`/home` is SMB, not local SSD.** SQLite over a network share is slower and chattier
+  than local disk. Immaterial at the current 1.5 MB; the first thing to degrade as the
+  corpus grows.
+- **It rules out horizontal scaling.** `-w 1` is listed above as a memory decision, and it
+  is also a correctness one — several processes writing one SQLite file over SMB invites
+  lock contention and corruption. Multiple instances would require replacing Chroma with a
+  hosted vector database, which is the single largest change scaling would force.
+- **There is no backup.** `/home` survives restart and redeploy, not deletion of the App
+  Service. Uploaded documents and their embeddings exist in exactly one place.
+- **`/home` is an App Service convention.** Container Apps or AKS would need an explicit
+  volume mount — though since the path is one environment variable, the application code
+  is unaffected.
+
 ### Three deployment problems worth recording
 
 1. **sqlite3 too old.** Azure's Linux image ships sqlite3 < 3.35; Chroma raises a
@@ -1621,6 +1670,8 @@ so `main` is verified before merge; for direct pushes it would be one workflow w
   must come from the user's question.
 - Validated end to end on one city. Architecturally city-agnostic; empirically proven on
   Palo Alto.
+- Unit counts come from the parcel layer where present; layers without that attribute use
+  a derived value.
 
 **Operations**
 - No authentication and no per-user document isolation. Acceptable for a demo, not for
@@ -1719,7 +1770,230 @@ the core requirements do not depend on it.
 
 ---
 
-## 19. Appendix — API reference
+## 19. Appendix — Repository layout
+
+```
+paloAltoRentalGIS/
+│
+├── .github/workflows/
+│   ├── ci.yml                     # verify: lint, compile, import, build
+│   └── deploy.yml                 # ship: backend → App Service, frontend → SWA
+│
+├── backend/
+│   ├── app/
+│   │   ├── __init__.py            # sqlite3 shim for Azure Linux (load-bearing)
+│   │   ├── main.py                # FastAPI app, CORS, router registration
+│   │   ├── config.py              # env vars, paths, model names
+│   │   ├── rag.py                 # plain-RAG baseline + shared prompt/context helpers
+│   │   │
+│   │   ├── routers/
+│   │   │   ├── upload_document.py # POST /api/upload_document
+│   │   │   └── query.py           # POST /api/query
+│   │   │
+│   │   ├── ingestion/
+│   │   │   ├── document_loader.py # any file type → LangChain Documents
+│   │   │   └── chunker.py         # section-aware chunking with size fallback
+│   │   │
+│   │   ├── vectorstore/
+│   │   │   ├── embeddings.py      # cached sentence-transformers model
+│   │   │   └── chroma_client.py   # add, search, stitch split sections
+│   │   │
+│   │   ├── parcel_data/
+│   │   │   ├── parcel_store.py    # cleans parcel attributes from the request
+│   │   │   └── demo_units.py      # synthetic UNITS fallback for demo layers
+│   │   │
+│   │   ├── agents/
+│   │   │   ├── planner_agent.py            # which tools? rewrite the query
+│   │   │   ├── retriever_reasoner_agent.py # call tools, judge, retry
+│   │   │   ├── generator_agent.py          # write the grounded answer
+│   │   │   ├── validator_agent.py          # verify claims against sources
+│   │   │   ├── orchestrator.py             # sequence the four
+│   │   │   └── json_utils.py               # shared LLM-JSON parser
+│   │   │
+│   │   └── llm/
+│   │       └── openrouter_client.py        # plain requests.post to OpenRouter
+│   │
+│   ├── data/                      # gitignored — regenerated by uploads
+│   │   ├── chroma_store/
+│   │   └── uploaded_documents/
+│   │
+│   ├── scratch_*.py               # throwaway test scripts (gitignored)
+│   ├── requirements.txt
+│   └── .env.example
+│
+├── frontend/
+│   └── src/
+│       ├── main.jsx               # entry; Esri assetsPath + dark theme
+│       ├── App.jsx                # app shell, shared state
+│       ├── index.css              # dark theme, layout, Esri overrides
+│       │
+│       ├── api/client.js          # fetch wrappers for both endpoints
+│       ├── lib/shapefile.js       # zip → GeoJSONLayer, ID-field detection
+│       ├── lib/demoUnits.js       # synthetic UNITS at upload time
+│       │
+│       └── components/
+│           ├── TopBar.jsx         # title + counts
+│           ├── IconRail.jsx       # 56px icon strip
+│           ├── railItems.js       # single source of truth for rail/drawer labels
+│           ├── Drawer.jsx         # 320px slide-out, routes to a panel
+│           ├── MapView.jsx        # Esri map + click-to-select
+│           ├── ChatPanel.jsx      # conversation, sources, badge, trace
+│           ├── Footer.jsx         # legend + copyright
+│           ├── Icon.jsx           # inline SVG icon set
+│           └── panels/
+│               ├── LayersPanel.jsx        # Esri LayerList
+│               ├── AddDataPanel.jsx       # shapefile upload
+│               ├── DocumentsPanel.jsx     # document upload
+│               ├── FindParcelPanel.jsx    # Esri Search
+│               └── BaseMapGalleryPanel.jsx
+│
+├── docs/
+│   ├── CAPSTONE_REPORT.md         # this document
+│   ├── build_report.py            # builds the .docx below
+│   ├── Exon_Rental_Capstone_Report.docx
+│   └── images/                    # UI screenshots embedded in the .docx
+│
+└── .gitignore
+```
+
+---
+
+## 20. Appendix — File-by-file reference
+
+### Backend — entry and config
+
+**`app/__init__.py`** — Runs before any submodule. Swaps `pysqlite3-binary` in as
+`sqlite3` because Azure's Linux image ships a version older than Chroma's minimum
+(3.35). Must stay the first thing imported. No-op locally.
+
+**`app/main.py`** — Creates the FastAPI app, adds CORS middleware using origins from
+config, registers routers, exposes `GET /health`.
+
+**`app/config.py`** — Single place for paths and model names. Everything env-overridable
+so Azure can set `DATA_DIR=/home/data` and `ALLOWED_ORIGINS` without a code change.
+
+### Backend — ingestion
+
+**`ingestion/document_loader.py`** — `load_documents(path)` dispatches on file
+extension: PDF → `PyPDFLoader` (one Document per page), TXT/MD → `TextLoader`,
+CSV/Excel → pandas, flattened to `col: value | col: value` lines so column names stay
+attached to their values. Raises `UnsupportedFileType` or a clear error for scanned
+PDFs with no text layer.
+
+**`ingestion/chunker.py`** — Two-stage: section split by heading regex (keeping the
+*last* match per section number to discard the table-of-contents copy), then size
+enforcement via `RecursiveCharacterTextSplitter` for sections past the embedding
+model's ~256-token limit. Falls back to plain size-based chunking when a document has
+no recognisable section numbering. Full walkthrough in [section 6](#6-chunking-in-detail).
+
+### Backend — vector store
+
+**`vectorstore/embeddings.py`** — `get_embeddings()` wrapped in `@lru_cache(maxsize=1)`
+so the model loads once. `normalize_embeddings=True` so cosine similarity isn't
+skewed by chunk length.
+
+**`vectorstore/chroma_client.py`** — Four things worth knowing:
+
+- **`_chunk_id`** builds a stable ID from `source_file::section::part`, so re-uploading
+  the same document **overwrites** instead of duplicating every chunk.
+- **`search`** — raw similarity search.
+- **`get_full_section`** — reassembles a section from its parts, ordered by `part`.
+- **`search_sections`** — over-fetches `k*4` chunks, dedups by section, and stitches
+  split sections back together. **This matters:** section 9.68.060 splits into 7
+  parts, so a naive search can return the dollar table without the exemption that
+  says the section only applies to 10+ unit buildings. Rejoining guarantees the rule
+  and its exceptions arrive together. See [section 7](#7-embeddings-and-similarity-search).
+
+### Backend — parcel data
+
+**`parcel_data/parcel_store.py`** — `get_parcel_attributes(apn, raw)` cleans what the
+frontend sent: keeps the documented useful fields in a stable order, drops geometry
+(thousands of characters of coordinates, useless to an LLM), drops empty values, and
+falls back to any other short fields for cities with different column names.
+
+**`parcel_data/demo_units.py`** — Fabricates a stable `UNITS` value from a hash of the
+APN when the uploaded layer has none. Not real data; it exists so the unit-threshold
+demo is reproducible.
+
+**Nothing is stored server-side.** Attributes travel with each request, so two
+concurrent users can never see each other's parcel.
+
+### Backend — LLM
+
+**`llm/openrouter_client.py`** — `chat(messages, model, temperature, max_tokens)`.
+A plain `requests.post` to OpenRouter's chat-completions endpoint. Raises `LLMError`
+for network failures, non-200 responses, and unexpected response shapes.
+`temperature=0` by default — grounded legal answers should be repeatable.
+
+### Backend — RAG helpers
+
+**`rag.py`** — Holds `SYSTEM_PROMPT` (the five grounding rules), `MIN_SCORE = 0.15`,
+`build_context()`, and `answer_question()`.
+
+`answer_question` is the **plain-RAG baseline** — retrieve once, answer, done. The
+agent path doesn't call it, but it's kept deliberately: it lets you run the same
+question through both paths and show the difference, which is what
+[section 12](#12-plain-rag-vs-agentic-rag--the-measured-difference) measures.
+
+### Backend — agents
+
+**`agents/planner_agent.py`**, **`retriever_reasoner_agent.py`**,
+**`generator_agent.py`**, **`validator_agent.py`**, **`orchestrator.py`**, and the
+shared **`json_utils.py`** LLM-JSON parser. Each agent's role, input, output and
+failure mode is covered in [section 9](#9-the-agents--role-input-output-failure-mode).
+
+### Backend — routers
+
+**`routers/upload_document.py`** — `POST /api/upload_document`. Sanitises the filename
+with `Path(...).name` (client-supplied paths could otherwise escape the upload
+directory), validates the extension **before** writing, runs load → chunk → store,
+deletes the file if ingestion fails, returns `{filename, pages, chunks, sections}`.
+
+Deliberately a **sync `def`**: parsing and embedding are CPU-bound with nothing to
+await, so FastAPI runs it in a threadpool and the event loop stays free.
+
+**`routers/query.py`** — `POST /api/query`. Pydantic body of `question`, `apn`,
+`parcel_attributes`. Maps exceptions to status codes: `PlanAgentError` → 400,
+`LLMError` → 502 (upstream problem, not ours), anything else → 500.
+
+### Frontend
+
+**`main.jsx`** — Sets `esriConfig.assetsPath` to Esri's CDN. Without this, icons and
+fonts 404 — Vite can't see runtime-constructed asset URLs, so it never bundles them.
+
+**`App.jsx`** — Owns three pieces of state: `activePanel` (which drawer), `view` (the
+Esri MapView, lifted so drawer widgets can use it), `selectedParcel` (`{apn, attributes}`).
+
+**`api/client.js`** — `fetch` wrappers for both endpoints, turning FastAPI's `detail`
+field into a thrown `Error`.
+
+**`lib/shapefile.js`** — `layersFromShapefileZip(file)` unzips with `shpjs` (which
+reads the `.prj` and reprojects to WGS84), builds a `GeoJSONLayer` from a Blob URL,
+and applies renderers: polygons transparent with a purple outline, points blue.
+`detectIdField()` finds the parcel identifier column — `APN`, `PARCELID`, `PIN`, `AIN`
+— shared with the map click handler so both use one pattern.
+
+**`lib/demoUnits.js`** — The frontend half of the synthetic-`UNITS` fallback, applied at
+shapefile upload time so the attribute is present before any question is asked.
+
+**`components/MapView.jsx`** — Creates the map in a `useEffect` with `[]`, returns
+`view.destroy()` for cleanup (StrictMode double-mounts, and without cleanup you leak
+a second map). Callbacks are held in refs updated inside an effect, so a changing
+callback identity never tears down the map. `view.on("click")` → `hitTest` → attributes
+→ `onParcelSelect`.
+
+**`components/ChatPanel.jsx`** — Conversation state, source chips, validation badge,
+and a collapsible reasoning trace.
+
+**Esri widgets in React** — `LayersPanel`, `BaseMapGalleryPanel`, `FindParcelPanel`,
+and `Footer` all mount real Esri widgets into the app's own DOM via the widget
+`container` property. Each creates a **throwaway inner div** first, because Esri's
+`destroy()` removes its container element from the DOM — hand it the React-owned div
+and React's node disappears, leaving the widget rendering into a detached element.
+
+---
+
+## 21. Appendix — API reference
 
 ### `POST /api/upload_document`
 
@@ -1793,7 +2067,17 @@ upload finished.
 
 ---
 
-## 20. Appendix — Running locally
+## 22. Appendix — Running locally
+
+The deployed application is live at **https://red-beach-0bbb9cb1e.7.azurestaticapps.net/**
+and needs no setup — upload a document and a parcel layer and it works in the browser. The
+sample ordinance PDF and parcel shapefile used throughout this report are in
+[`docs/files/`](files/).
+
+The free App Service tier sleeps when idle, so the first request after a quiet period takes
+a minute or so to wake the backend and load the embedding model.
+
+To run it locally instead:
 
 ```powershell
 # Backend
